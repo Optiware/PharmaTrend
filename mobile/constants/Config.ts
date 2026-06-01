@@ -1,4 +1,4 @@
-const IP_ADDRESS = "192.168.1.93";
+const IP_ADDRESS = "69.62.110.32";
 
 export const API_URL = `http://${IP_ADDRESS}:3000`;
 

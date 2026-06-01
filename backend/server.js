@@ -1,20 +1,24 @@
+require("dotenv").config(); // 🟢 INDISPENSABLE : Charge les variables du fichier .env
+
 const express = require("express");
 const { Pool } = require("pg");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
-const http = require("http"); // 🟢 Requis pour Socket.IO
-const { Server } = require("socket.io"); // 🟢 Requis pour Socket.IO
+const http = require("http");
+const { Server } = require("socket.io");
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
-// Configuration de la connexion BDD
+// ==========================================
+// 🗄️ Configuration de la connexion BDD
+// ==========================================
 const pool = new Pool({
-  user: "postgres",
-  host: "localhost",
-  database: "pharmatrend",
-  password: "root", // ⚠️ Attention, tu avais mis 'admin' tout à l'heure, vérifie ton mot de passe !
-  port: 5432,
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
 });
 
 app.use(cors());
@@ -200,7 +204,6 @@ app.post("/swipes", async (req, res) => {
       );
       res.json({ status: "unliked" });
     } else {
-      // 🟢 Correction des guillemets ici ('LIKE')
       await pool.query(
         "INSERT INTO swipes (id_user, id_product, action) VALUES ($1, $2, 'LIKE')",
         [id_user, id_product],
@@ -215,15 +218,6 @@ app.post("/swipes", async (req, res) => {
     console.error(err);
     res.status(500).json({ error: "Erreur BDD" });
   }
-});
-
-// ==========================================
-// 🚀 LANCEMENT DU SERVEUR
-// ==========================================
-// 🟢 ATTENTION : On utilise "server.listen" et non "app.listen" pour Socket.IO
-server.listen(port, "0.0.0.0", () => {
-  console.log(`🚀 SERVEUR PRÊT sur http://192.168.137.1:${port}`);
-  console.log(`   (Ou http://localhost:${port} sur ce PC)`);
 });
 
 // ==========================================
@@ -243,4 +237,12 @@ app.get("/messages/:user1/:user2", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: "Erreur Chat" });
   }
+});
+
+// ==========================================
+// 🚀 LANCEMENT DU SERVEUR
+// ==========================================
+// 🟢 ATTENTION : On utilise "server.listen" et non "app.listen" pour Socket.IO
+server.listen(port, "0.0.0.0", () => {
+  console.log(`🚀 SERVEUR PRÊT sur le port ${port}`);
 });
