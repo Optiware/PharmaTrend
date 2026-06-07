@@ -10,17 +10,16 @@ export interface Equipment {
   status: string;
   image_url: string;
   location?: string;
+  id_user?: number;
 }
 
-export interface Product {
-  id_product: number;
+export interface User {
+  id_user: number;
   name: string;
-  category: string;
-  likes_count: number;
-  image_url: string;
+  email: string;
 }
 
-// --- FONCTION D'APPEL GÉNÉRIQUE (Interne) ---
+// --- FONCTION D'APPEL GÉNÉRIQUE ---
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
   try {
     console.log(`📡 Appel vers : ${API_URL}${endpoint}`);
@@ -45,11 +44,10 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
 }
 
 // ==================================================
-// 🔐 AUTHENTIFICATION & SESSION (Login/Register)
+// 🔐 AUTHENTIFICATION & SESSION
 // ==================================================
 
 export const registerUser = async (userData: any) => {
-  // userData contient : { name, email, password, companyName, phone, role }
   return await fetchAPI("/register", {
     method: "POST",
     body: JSON.stringify(userData),
@@ -62,39 +60,35 @@ export const loginUser = async (email: string, pass: string) => {
     body: JSON.stringify({ email, password: pass }),
   });
 
-  // Si login réussi, on sauvegarde la session dans le téléphone
+  // Si login réussi, on sauvegarde l'objet complet en JSON
   if (data.success && data.user) {
-    await AsyncStorage.setItem("userId", data.user.id_user.toString());
-    await AsyncStorage.setItem("userName", data.user.name);
+    await AsyncStorage.setItem("user", JSON.stringify(data.user));
   }
 
   return data.user;
 };
 
 export const logoutUser = async () => {
-  await AsyncStorage.clear(); // On vide la mémoire du téléphone
+  await AsyncStorage.clear();
 };
 
-export const getUserProfile = async () => {
-  const userId = await AsyncStorage.getItem("userId");
-  if (!userId) throw new Error("Utilisateur non connecté");
-  return await fetchAPI(`/users/${userId}`);
+// Fonction utilitaire pour récupérer l'utilisateur connecté partout
+export const getStoredUser = async (): Promise<User | null> => {
+  const user = await AsyncStorage.getItem("user");
+  return user ? JSON.parse(user) : null;
 };
 
 // ==================================================
-// 🛒 MARKETPLACE (Equipments)
+// 🛒 MARKETPLACE
 // ==================================================
 
 export const getEquipments = async (category = "Tout") => {
   try {
-    // Gestion du filtre par catégorie
-    // Si c'est "Tout", on appelle /equipments, sinon /equipments?category=...
     const endpoint =
       category === "Tout" ? "/equipments" : `/equipments?category=${category}`;
-    const data = await fetchAPI(endpoint);
-    return data || [];
+    return await fetchAPI(endpoint);
   } catch (e) {
-    return []; // Retourne vide si erreur pour ne pas bloquer l'app
+    return [];
   }
 };
 
@@ -108,8 +102,7 @@ export const getEquipmentDetail = async (id: string) => {
 
 export const getTrends = async () => {
   try {
-    const data = await fetchAPI("/products/trends");
-    return data || [];
+    return await fetchAPI("/products/trends");
   } catch (e) {
     return [];
   }
@@ -120,31 +113,29 @@ export const swipeProduct = async (
   action: "LIKE" | "DISLIKE",
 ) => {
   try {
-    // On récupère l'ID user pour savoir qui like
-    const userId = await AsyncStorage.getItem("userId");
-    if (!userId) return;
+    const user = await getStoredUser();
+    if (!user) return;
 
     await fetch(`${API_URL}/swipes`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id_user: userId, id_product, action }),
+      body: JSON.stringify({ id_user: user.id_user, id_product, action }),
     });
   } catch (e) {
-    console.error("Erreur silencieuse swipe", e);
+    console.error("Erreur swipe", e);
   }
 };
 
 // ==================================================
-// 💬 MESSAGERIE (NOUVEAU)
+// 💬 MESSAGERIE
 // ==================================================
 
 export const getMyConversations = async () => {
   try {
-    const userId = await AsyncStorage.getItem("userId");
-    if (!userId) return [];
+    const user = await getStoredUser();
+    if (!user) return [];
 
-    // Appelle la route que l'on vient de créer dans server.js
-    return await fetchAPI(`/my-conversations/${userId}`);
+    return await fetchAPI(`/my-conversations/${user.id_user}`);
   } catch (error) {
     console.log("Erreur chargement conversations", error);
     return [];

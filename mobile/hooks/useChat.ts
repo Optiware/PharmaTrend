@@ -43,7 +43,6 @@ export default function useChat(receiverId: string) {
       created_at: new Date().toISOString(),
     };
 
-    // On l'ajoute localement pour l'afficher tout de suite (comme tu l'avais fait)
     setMessages((prev) => [...prev, msg]);
 
     // On l'envoie au serveur pour que l'autre personne le reçoive !

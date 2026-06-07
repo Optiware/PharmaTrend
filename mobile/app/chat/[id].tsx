@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,85 +8,141 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
+  ActivityIndicator,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-// 🟢 Importation corrigée (sans les accolades car c'est un "export default")
-import useChat from "../../hooks/useChat";
+import { useLocalSearchParams } from "expo-router";
+import io from "socket.io-client";
+import { SafeAreaView } from "react-native-safe-area-context";
+import * as Config from "../../constants/Config";
+import { useAuth } from "../../context/AuthContext";
+
+interface Message {
+  id?: number;
+  sender_id: number;
+  receiver_id: number;
+  content: string;
+  created_at?: string;
+}
 
 export default function ChatScreen() {
-  const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // 🟢 On récupère l'ID, le nom du contact et le nom du produit depuis les paramètres
+  const { id, contactName, productName } = useLocalSearchParams();
+  const contactId = Number(id) || 2;
 
+  const { user } = useAuth();
+  const MY_USER_ID = user?.id_user;
+
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
+  const [socket, setSocket] = useState<any>(null);
 
-  const { messages, sendMessage, myId } = useChat(id);
+  useEffect(() => {
+    if (!MY_USER_ID) return;
 
-  const renderMessage = ({ item }: { item: any }) => {
-    // Vérification sécurisée si on est l'expéditeur
-    const isMe = item.sender_id?.toString() === myId?.toString();
+    // A. Récupérer l'historique
+    fetch(
+      `${Config.API_URL || "http://69.62.110.32:3000"}/messages/${MY_USER_ID}/${contactId}`,
+    )
+      .then((res) => res.json())
+      .then((data) => setMessages(data))
+      .catch((err) => console.error("Erreur historique:", err));
 
+    // B. Connexion Temps Réel
+    const newSocket = io(Config.API_URL || "http://69.62.110.32:3000");
+    setSocket(newSocket);
+
+    // C. Écouter les nouveaux messages
+    newSocket.on("receive_message", (newMessage: Message) => {
+      if (
+        (newMessage.sender_id === contactId &&
+          newMessage.receiver_id === MY_USER_ID) ||
+        (newMessage.sender_id === MY_USER_ID &&
+          newMessage.receiver_id === contactId)
+      ) {
+        setMessages((prevMessages) => [...prevMessages, newMessage]);
+      }
+    });
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [contactId, MY_USER_ID]);
+
+  const sendMessage = () => {
+    if (inputText.trim() === "" || !MY_USER_ID) return;
+
+    const newMessage: Message = {
+      sender_id: MY_USER_ID,
+      receiver_id: contactId,
+      content: inputText,
+    };
+
+    socket?.emit("send_message", newMessage);
+    setInputText("");
+  };
+
+  const renderMessage = ({ item }: { item: Message }) => {
+    const isMe = item.sender_id === MY_USER_ID;
     return (
       <View
         style={[
           styles.messageBubble,
-          isMe ? styles.myMessage : styles.theirMessage,
+          isMe ? styles.myMessage : styles.contactMessage,
         ]}
       >
-        <Text style={[styles.messageText, isMe ? styles.myMessageText : null]}>
+        <Text style={isMe ? styles.myMessageText : styles.contactMessageText}>
           {item.content}
         </Text>
       </View>
     );
   };
 
-  const handleSend = () => {
-    sendMessage(inputText);
-    setInputText(""); // On vide la barre de texte après l'envoi
-  };
+  if (!MY_USER_ID) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ActivityIndicator
+          size="large"
+          color="#007AFF"
+          style={{ marginTop: 50 }}
+        />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* HEADER */}
+      {/* 🟢 EN-TÊTE DYNAMIQUE */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#111" />
-        </TouchableOpacity>
-        <Text style={styles.headerName}>Négociation</Text>
-        <View style={{ width: 24 }} />
+        <Text style={styles.headerText}>
+          {contactName ? contactName : `Discussion avec le vendeur`}
+        </Text>
+        {productName ? (
+          <Text style={styles.subHeaderText}>Au sujet de : {productName}</Text>
+        ) : null}
       </View>
 
-      {/* LISTE DES MESSAGES */}
+      {/* 🟢 REMPLACE TON KEYBOARDAVOIDINGVIEW PAR CELUI-CI */}
       <KeyboardAvoidingView
-        style={styles.chatContainer}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "padding"}
+        keyboardVerticalOffset={Platform.OS === "android" ? 90 : 90}
       >
         <FlatList
           data={messages}
-          keyExtractor={(item, index) =>
-            item.id_message?.toString() || index.toString()
-          }
+          keyExtractor={(item, index) => index.toString()}
           renderItem={renderMessage}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.chatContainer}
         />
-
-        {/* INPUT DE SAISIE */}
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
             placeholder="Écrivez votre message..."
+            placeholderTextColor="#9ca3af"
             value={inputText}
             onChangeText={setInputText}
-            multiline
           />
-          <TouchableOpacity
-            style={[styles.sendButton, !inputText.trim() && { opacity: 0.5 }]}
-            onPress={handleSend}
-            disabled={!inputText.trim()}
-          >
-            <Ionicons name="send" size={20} color="white" />
+          <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
+            <Text style={styles.sendButtonText}>Envoyer</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -95,65 +151,57 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f9fafb", paddingTop: 40 },
+  container: { flex: 1, backgroundColor: "#F5F5F5" },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingBottom: 15,
+    padding: 15,
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-    backgroundColor: "white",
+    borderColor: "#E0E0E0",
+    alignItems: "center",
   },
-  backBtn: { padding: 5 },
-  headerName: { fontSize: 18, fontWeight: "bold", color: "#111" },
-  chatContainer: { flex: 1 },
-  listContent: { padding: 20, paddingBottom: 40 },
+  headerText: { fontSize: 18, fontWeight: "bold", color: "#333" },
+  subHeaderText: { fontSize: 14, color: "#10b981", marginTop: 4 }, // <-- Vert pour le produit
+  chatContainer: { padding: 15, paddingBottom: 10 },
   messageBubble: {
     maxWidth: "80%",
-    padding: 15,
+    padding: 12,
     borderRadius: 20,
-    marginBottom: 15,
+    marginBottom: 10,
   },
   myMessage: {
     alignSelf: "flex-end",
-    backgroundColor: "#10b981",
+    backgroundColor: "#007AFF",
     borderBottomRightRadius: 5,
   },
-  theirMessage: {
+  contactMessage: {
     alignSelf: "flex-start",
-    backgroundColor: "#e5e7eb",
+    backgroundColor: "#E5E5EA",
     borderBottomLeftRadius: 5,
   },
-  messageText: { fontSize: 16, color: "#1f2937" },
-  myMessageText: { color: "white" },
+  myMessageText: { color: "#FFF", fontSize: 16 },
+  contactMessageText: { color: "#000", fontSize: 16 },
   inputContainer: {
     flexDirection: "row",
-    padding: 15,
-    backgroundColor: "white",
+    padding: 10,
+    backgroundColor: "#FFF",
     borderTopWidth: 1,
-    borderTopColor: "#e5e7eb",
-    alignItems: "center",
+    borderColor: "#E0E0E0",
   },
   input: {
     flex: 1,
-    backgroundColor: "#f3f4f6",
-    borderRadius: 25,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 12,
+    height: 40,
+    backgroundColor: "#F0F0F0",
+    borderRadius: 20,
+    paddingHorizontal: 15,
     fontSize: 16,
-    maxHeight: 100,
+    color: "black", // <-- Force le texte de frappe en noir
   },
   sendButton: {
-    backgroundColor: "#10b981",
-    width: 45,
-    height: 45,
-    borderRadius: 25,
-    justifyContent: "center",
-    alignItems: "center",
     marginLeft: 10,
-    elevation: 2,
+    justifyContent: "center",
+    backgroundColor: "#007AFF",
+    borderRadius: 20,
+    paddingHorizontal: 15,
   },
+  sendButtonText: { color: "#FFF", fontWeight: "bold", fontSize: 16 },
 });

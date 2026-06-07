@@ -41,15 +41,12 @@ const io = new Server(server, {
 io.on("connection", (socket) => {
   console.log(`🔌 Nouvel utilisateur connecté (ID: ${socket.id})`);
 
-  // Quand un utilisateur envoie un message via le chat
   socket.on("send_message", async (data) => {
     try {
-      // On sauvegarde dans la BDD
       await pool.query(
         "INSERT INTO messages (sender_id, receiver_id, content) VALUES ($1, $2, $3)",
         [data.sender_id, data.receiver_id, data.content],
       );
-      // On le renvoie à tout le monde (dans un vrai projet on ciblerait une "room")
       io.emit("receive_message", data);
     } catch (err) {
       console.error("Erreur Socket:", err);
@@ -169,6 +166,49 @@ app.get("/equipments", async (req, res) => {
   }
 });
 
+// 📄 DÉTAIL D'UN ÉQUIPEMENT
+app.get("/equipments/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      "SELECT * FROM equipments WHERE id_equip = $1",
+      [id],
+    );
+    if (result.rows.length > 0) {
+      res.json(result.rows[0]);
+    } else {
+      res.status(404).json({ error: "Équipement introuvable" });
+    }
+  } catch (err) {
+    res.status(500).json({ error: "Erreur BDD" });
+  }
+});
+
+// ➕ AJOUTER UN ÉQUIPEMENT (VENDRE)
+app.post("/equipments", async (req, res) => {
+  try {
+    const { title, description, price, status, image_url, location, id_user } =
+      req.body;
+    await pool.query(
+      "INSERT INTO equipments (title, description, price, status, image_url, location, id_user) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      [
+        title,
+        description,
+        price,
+        status,
+        image_url ||
+          "https://images.unsplash.com/photo-1516549655134-f62893452362",
+        location,
+        id_user,
+      ],
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur lors de l'ajout" });
+  }
+});
+
 // ==========================================
 // 🔥 TRENDS (PRODUITS & SWIPES)
 // ==========================================
@@ -240,9 +280,40 @@ app.get("/messages/:user1/:user2", async (req, res) => {
 });
 
 // ==========================================
+// 💬 CHAT - LISTE DES CONVERSATIONS (CORRIGÉ AVEC LES NOMS)
+// ==========================================
+app.get("/my-conversations/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const query = `
+      SELECT DISTINCT
+        CASE
+          WHEN sender_id = $1 THEN receiver_id
+          ELSE sender_id
+        END AS contact_id,
+        users.name AS contact_name
+      FROM messages
+      JOIN users ON users.id_user = (
+        CASE
+          WHEN sender_id = $1 THEN receiver_id
+          ELSE sender_id
+        END
+      )
+      WHERE sender_id = $1 OR receiver_id = $1;
+    `;
+
+    const result = await pool.query(query, [userId]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Erreur récupération conversations :", err);
+    res.status(500).json({ error: "Erreur liste conversations" });
+  }
+});
+
+// ==========================================
 // 🚀 LANCEMENT DU SERVEUR
 // ==========================================
-// 🟢 ATTENTION : On utilise "server.listen" et non "app.listen" pour Socket.IO
 server.listen(port, "0.0.0.0", () => {
   console.log(`🚀 SERVEUR PRÊT sur le port ${port}`);
 });

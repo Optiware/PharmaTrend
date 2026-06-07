@@ -62,6 +62,7 @@ export default function MarketScreen() {
             </View>
             <View style={styles.locationContainer}>
               <Ionicons name="location-sharp" size={14} color="#666" />
+              {/* CORRECTION ICI : le "s" a été retiré */}
               <Text style={styles.distanceText}>See map</Text>
             </View>
           </View>
@@ -90,6 +91,7 @@ export default function MarketScreen() {
           />
           <TextInput
             placeholder="Search equipment..."
+            placeholderTextColor="#9ca3af"
             style={styles.searchInput}
             value={search}
             onChangeText={setSearch}
@@ -169,7 +171,11 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     elevation: 2,
   },
-  searchInput: { flex: 1, fontSize: 16 },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: "black", // <-- Ajout pour le mode sombre
+  },
   catScroll: { marginBottom: 10 },
   catBtn: {
     paddingVertical: 8,

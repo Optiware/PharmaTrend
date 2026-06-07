@@ -1,8 +1,11 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Platform, View, Alert } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
@@ -16,9 +19,9 @@ export default function TabLayout() {
           elevation: 10, // Ombre Android
           shadowColor: "#000",
           shadowOpacity: 0.1,
-          shadowRadius: 10, // Ombre iOS
-          height: Platform.OS === "android" ? 70 : 90,
-          paddingBottom: Platform.OS === "android" ? 10 : 30,
+          shadowRadius: 10,
+          height: Platform.OS === "android" ? 60 + insets.bottom : 90,
+          paddingBottom: Platform.OS === "android" ? insets.bottom + 5 : 30,
           paddingTop: 10,
         },
         tabBarLabelStyle: { fontSize: 10, fontWeight: "600", marginTop: 2 },
@@ -76,12 +79,6 @@ export default function TabLayout() {
               <Ionicons name="add" size={30} color="white" />
             </View>
           ),
-        }}
-        listeners={{
-          tabPress: (e) => {
-            e.preventDefault(); // On bloque la navigation pour l'exemple
-            Alert.alert("Vendre", "Fonctionnalité bientôt disponible !");
-          },
         }}
       />
 

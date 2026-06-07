@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -7,53 +7,37 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
-import { useRouter } from "expo-router"; // <--- Import important
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { getUserProfile, logoutUser } from "../../services/data";
+import { useAuth } from "../../context/AuthContext";
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
-
-  const loadProfile = async () => {
-    try {
-      const data = await getUserProfile();
-      setUser(data);
-    } catch (error) {
-      console.log("Non connecté, redirection...");
-
-      router.replace("/");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { user, logout } = useAuth();
 
   const handleLogout = async () => {
-    await logoutUser();
-    router.replace("/"); // Retour au login après déconnexion
+    await logout();
+    router.replace("/");
   };
 
-  if (loading)
+  if (!user) {
     return (
-      <ActivityIndicator
-        size="large"
-        color="#27ae60"
-        style={{ marginTop: 50 }}
-      />
+      <View
+        style={[
+          styles.container,
+          { justifyContent: "center", alignItems: "center" },
+        ]}
+      >
+        <ActivityIndicator size="large" color="#27ae60" />
+        <Text style={{ marginTop: 10 }}>Chargement du profil...</Text>
+      </View>
     );
-
-  // Si l'utilisateur est null (erreur de chargement), on affiche rien en attendant la redirection
-  if (!user) return <View style={styles.container} />;
+  }
 
   return (
     <View style={styles.container}>
-      {/* ... GARDE TOUT TON CODE D'AFFICHAGE ICI ... */}
-      {/* ... Header, Section, Bouton Déconnexion ... */}
+      {/* HEADER */}
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
           <Image
@@ -63,28 +47,36 @@ export default function ProfileScreen() {
             style={styles.avatar}
           />
         </View>
-        <Text style={styles.name}>{user?.name}</Text>
-        <Text style={styles.role}>{user?.company_name}</Text>
+        <Text style={styles.name}>{user.name}</Text>
+        {/* On affiche le nom de l'entreprise ou un texte par défaut */}
+        <Text style={styles.role}>{user.company_name || "Pharmacien"}</Text>
       </View>
 
+      {/* INFORMATIONS */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Mes Informations</Text>
+
         <View style={styles.row}>
           <Ionicons name="mail-outline" size={24} color="#27ae60" />
-          <Text style={styles.infoText}>{user?.email}</Text>
+          <Text style={styles.infoText}>{user.email}</Text>
         </View>
+
         <View style={styles.row}>
           <Ionicons name="call-outline" size={24} color="#27ae60" />
           <Text style={styles.infoText}>
-            {user?.phone_number || "Non renseigné"}
+            {user.phone_number || "Non renseigné"}
           </Text>
         </View>
+
         <View style={styles.row}>
           <Ionicons name="briefcase-outline" size={24} color="#27ae60" />
-          <Text style={styles.infoText}>Rôle : {user?.role}</Text>
+          <Text style={styles.infoText}>
+            Rôle : {user.role || "Utilisateur"}
+          </Text>
         </View>
       </View>
 
+      {/* BOUTON DÉCONNEXION */}
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.logoutText}>Se déconnecter</Text>
       </TouchableOpacity>
@@ -92,6 +84,9 @@ export default function ProfileScreen() {
   );
 }
 
+// ==========================================
+// 🎨 STYLES CSS
+// ==========================================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f4f6f8" },
   header: {
@@ -112,7 +107,7 @@ const styles = StyleSheet.create({
   },
   avatar: { width: 90, height: 90, borderRadius: 45 },
   name: { fontSize: 22, fontWeight: "bold", color: "white" },
-  role: { fontSize: 16, color: "#e8f5e9" },
+  role: { fontSize: 16, color: "#e8f5e9", marginTop: 5 },
   section: { padding: 20, marginTop: 20 },
   sectionTitle: {
     fontSize: 18,
@@ -136,6 +131,7 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
     alignItems: "center",
+    marginTop: 30,
   },
   logoutText: { color: "white", fontWeight: "bold", fontSize: 16 },
 });
