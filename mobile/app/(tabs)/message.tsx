@@ -9,14 +9,16 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import * as Config from "../../constants/Config";
+import { getMyConversations } from "../../services/data";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext";
 
 export default function InboxScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [conversations, setConversations] = useState([]);
+  const [conversations, setConversations] = useState<
+    { contact_id: number; contact_name: string }[]
+  >([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,18 +27,10 @@ export default function InboxScreen() {
       return;
     }
 
-    fetch(
-      `${Config.API_URL || "http://69.62.110.32:3000"}/my-conversations/${user.id_user}`,
-    )
-      .then((res) => res.json())
-      .then((data) => {
-        setConversations(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Erreur chargement inbox:", err);
-        setLoading(false);
-      });
+    getMyConversations().then((data) => {
+      setConversations(data);
+      setLoading(false);
+    });
   }, [user]);
 
   const renderItem = ({ item }: { item: any }) => (

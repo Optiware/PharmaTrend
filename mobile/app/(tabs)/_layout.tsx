@@ -30,7 +30,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="market"
         options={{
-          title: "Market",
+          title: "Marché",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "storefront" : "storefront-outline"}
@@ -44,7 +44,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="trends"
         options={{
-          title: "Trends",
+          title: "Tendances",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "flame" : "flame-outline"}
@@ -59,7 +59,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="sell"
         options={{
-          title: "Sell",
+          title: "Vendre",
           tabBarIcon: () => (
             <View
               style={{
@@ -85,7 +85,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="message"
         options={{
-          title: "Chat",
+          title: "Messages",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "chatbubble" : "chatbubble-outline"}
@@ -99,7 +99,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: "Profil",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "person" : "person-outline"}

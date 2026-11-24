@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Image, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import Photo from "../../components/Photo";
 import Swiper from "react-native-deck-swiper";
 import { SafeAreaView } from "react-native-safe-area-context";
-import * as Config from "../../constants/Config";
+import { getTrends, swipeProduct } from "../../services/data";
 import { useAuth } from "../../context/AuthContext"; // 🟢 Import du contexte
 
 interface Product {
@@ -18,31 +19,20 @@ export default function TrendsScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${Config.API_URL || "http://69.62.110.32:3000"}/products/trends`)
-      .then((res) => res.json())
-      .then((data) => {
-        setProducts(data);
-        setLoading(false);
-      })
-      .catch((err) => console.error("Erreur chargement trends:", err));
+    getTrends().then((data) => {
+      setProducts(data);
+      setLoading(false);
+    });
   }, []);
 
-  const handleSwipe = async (index: number, action: string) => {
+  const handleSwipe = async (index: number, action: "LIKE" | "PASS") => {
     const product = products[index];
 
-    // 🟢 Sécurité
-    if (!user || !user.id_user) return;
+    // Il faut être connecté pour liker
+    if (!user || !product) return;
 
     try {
-      await fetch(`${Config.API_URL || "http://69.62.110.32:3000"}/swipes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id_user: user.id_user, // 🟢 ID Dynamique
-          id_product: product.id_product,
-          action: action,
-        }),
-      });
+      await swipeProduct(product.id_product, action);
     } catch (e) {
       console.error("Erreur lors du swipe:", e);
     }
@@ -67,7 +57,7 @@ export default function TrendsScreen() {
           cards={products}
           renderCard={(card) => (
             <View style={styles.card}>
-              <Image source={{ uri: card.image_url }} style={styles.image} />
+              <Photo uri={card.image_url} style={styles.image} icone="flame-outline" />
               <View style={styles.cardInfo}>
                 <Text style={styles.title}>{card.name}</Text>
                 <Text style={styles.likes}>❤️ {card.likes_count} favoris</Text>

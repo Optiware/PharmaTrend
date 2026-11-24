@@ -1,0 +1,20 @@
+# Base de données de PharmaTrend : PostgreSQL 15 + PostGIS.
+# Au premier démarrage, le schéma puis les données de démonstration sont chargés.
+#   docker compose --env-file backend/.env up -d
+services:
+  db:
+    image: postgis/postgis:15-3.3
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-pharmatrend}
+      POSTGRES_USER: ${DB_USER:-pharmatrend}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?définir DB_PASSWORD dans backend/.env}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - donnees:/var/lib/postgresql/data
+      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql:ro
+      - ./backend/db/seed.sql:/docker-entrypoint-initdb.d/2-seed.sql:ro
+
+volumes:
+  donnees:

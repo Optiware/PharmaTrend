@@ -11,73 +11,74 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
-import io from "socket.io-client";
+import { io, type Socket } from "socket.io-client";
 import { SafeAreaView } from "react-native-safe-area-context";
-import * as Config from "../../constants/Config";
+import { API_URL } from "../../constants/Config";
 import { useAuth } from "../../context/AuthContext";
-
-interface Message {
-  id?: number;
-  sender_id: number;
-  receiver_id: number;
-  content: string;
-  created_at?: string;
-}
+import { getConversation, getToken, type Message } from "../../services/data";
 
 export default function ChatScreen() {
   // 🟢 On récupère l'ID, le nom du contact et le nom du produit depuis les paramètres
   const { id, contactName, productName } = useLocalSearchParams();
-  const contactId = Number(id) || 2;
+  const contactId = Number(id);
 
   const { user } = useAuth();
   const MY_USER_ID = user?.id_user;
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
-  const [socket, setSocket] = useState<any>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!MY_USER_ID) return;
+    if (!MY_USER_ID || !contactId) return;
 
-    // A. Récupérer l'historique
-    fetch(
-      `${Config.API_URL || "http://69.62.110.32:3000"}/messages/${MY_USER_ID}/${contactId}`,
-    )
-      .then((res) => res.json())
-      .then((data) => setMessages(data))
-      .catch((err) => console.error("Erreur historique:", err));
+    let actif = true;
+    let newSocket: Socket | null = null;
 
-    // B. Connexion Temps Réel
-    const newSocket = io(Config.API_URL || "http://69.62.110.32:3000");
-    setSocket(newSocket);
+    (async () => {
+      // A. Récupérer l'historique de la conversation
+      getConversation(contactId)
+        .then((data) => actif && setMessages(data))
+        .catch((err) => console.error("Erreur historique:", err));
 
-    // C. Écouter les nouveaux messages
-    newSocket.on("receive_message", (newMessage: Message) => {
-      if (
-        (newMessage.sender_id === contactId &&
-          newMessage.receiver_id === MY_USER_ID) ||
-        (newMessage.sender_id === MY_USER_ID &&
-          newMessage.receiver_id === contactId)
-      ) {
-        setMessages((prevMessages) => [...prevMessages, newMessage]);
-      }
-    });
+      // B. Connexion temps réel, avec le jeton : le serveur sait qui écrit
+      const token = await getToken();
+      if (!actif) return;
+      newSocket = io(API_URL, { auth: { token }, transports: ["websocket"] });
+      newSocket.on("connect_error", () => setErreur("Connexion au chat impossible"));
+      newSocket.on("connect", () => setErreur(null));
+
+      // C. Écouter les nouveaux messages (le serveur n'envoie que les nôtres)
+      newSocket.on("receive_message", (newMessage: Message) => {
+        if (
+          (newMessage.sender_id === contactId &&
+            newMessage.receiver_id === MY_USER_ID) ||
+          (newMessage.sender_id === MY_USER_ID &&
+            newMessage.receiver_id === contactId)
+        ) {
+          setMessages((prevMessages) => [...prevMessages, newMessage]);
+        }
+      });
+    })();
 
     return () => {
-      newSocket.disconnect();
+      actif = false;
+      newSocket?.disconnect();
     };
   }, [contactId, MY_USER_ID]);
 
   const sendMessage = () => {
-    if (inputText.trim() === "" || !MY_USER_ID) return;
+    if (inputText.trim() === "" || !socket) return;
 
-    const newMessage: Message = {
-      sender_id: MY_USER_ID,
-      receiver_id: contactId,
-      content: inputText,
-    };
-
-    socket?.emit("send_message", newMessage);
+    // L'expéditeur est celui du jeton : on n'envoie que le destinataire et le texte.
+    socket.emit(
+      "send_message",
+      { receiver_id: contactId, content: inputText },
+      (reponse: { ok?: boolean; error?: string }) => {
+        if (reponse?.error) setErreur(reponse.error);
+      },
+    );
     setInputText("");
   };
 
@@ -127,9 +128,14 @@ export default function ChatScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "padding"}
         keyboardVerticalOffset={Platform.OS === "android" ? 90 : 90}
       >
+        {erreur ? (
+          <Text style={{ color: "#c0392b", textAlign: "center", padding: 8 }}>
+            {erreur}
+          </Text>
+        ) : null}
         <FlatList
           data={messages}
-          keyExtractor={(item, index) => index.toString()}
+          keyExtractor={(item, index) => String(item.id_message ?? index)}
           renderItem={renderMessage}
           contentContainerStyle={styles.chatContainer}
         />

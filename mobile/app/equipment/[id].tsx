@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
@@ -10,6 +9,8 @@ import {
   Linking,
   Alert,
 } from "react-native";
+import Photo from "../../components/Photo";
+import { libelleCategorie } from "../../constants/Categories";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { getEquipmentDetail } from "../../services/data"; // On utilise la nouvelle fonction
@@ -63,7 +64,7 @@ export default function EquipmentDetail() {
           <Ionicons name="arrow-back" size={24} color="black" />
         </TouchableOpacity>
 
-        <Image source={{ uri: item.image_url }} style={styles.image} />
+        <Photo uri={item.image_url} style={styles.image} />
 
         <View style={styles.content}>
           <View style={styles.header}>
@@ -72,7 +73,7 @@ export default function EquipmentDetail() {
           </View>
 
           <View style={styles.badgeContainer}>
-            <Text style={styles.badge}>{item.status}</Text>
+            <Text style={styles.badge}>{libelleCategorie(item.status)}</Text>
           </View>
 
           <Text style={styles.sectionTitle}>Description</Text>
@@ -95,10 +96,11 @@ export default function EquipmentDetail() {
         <TouchableOpacity
           style={styles.contactButton}
           onPress={() => {
-            // 🟢 On vérifie qu'on a bien l'ID du vendeur, sinon on met 2 (Clinique) par défaut par sécurité
-            const vendeurId = item.id_user || 2;
+            // Sans vendeur connu, il n'y a personne à contacter.
+            const vendeurId = item.id_user;
+            if (!vendeurId) return;
 
-            // 🟢 CORRECTION : On utilise un objet pour envoyer le chemin ET les paramètres !
+            // On envoie le chemin ET les paramètres (nom de l'annonce)
             router.push({
               pathname: `/chat/${vendeurId}`,
               params: {

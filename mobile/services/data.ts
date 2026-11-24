@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "../constants/Config";
 
-// --- DÉFINITION DES TYPES ---
+// --- TYPES ---
 export interface Equipment {
   id_equip: number;
   title: string;
@@ -17,127 +17,119 @@ export interface User {
   id_user: number;
   name: string;
   email: string;
+  role: string;
+  company_name?: string | null;
 }
 
-// --- FONCTION D'APPEL GÉNÉRIQUE ---
-async function fetchAPI(endpoint: string, options: RequestInit = {}) {
-  try {
-    console.log(`📡 Appel vers : ${API_URL}${endpoint}`);
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-      ...options,
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || `Erreur HTTP: ${response.status}`);
-    }
-
-    return data;
-  } catch (error) {
-    console.log(`⚠️ ERREUR API sur ${endpoint} :`, error);
-    throw error;
-  }
+export interface Message {
+  id_message?: number;
+  sender_id: number;
+  receiver_id: number;
+  content: string;
+  created_at?: string;
 }
 
-// ==================================================
-// 🔐 AUTHENTIFICATION & SESSION
-// ==================================================
+const CLE_JETON = "token";
 
-export const registerUser = async (userData: any) => {
-  return await fetchAPI("/register", {
-    method: "POST",
-    body: JSON.stringify(userData),
+export const getToken = () => AsyncStorage.getItem(CLE_JETON);
+
+// --- APPEL GÉNÉRIQUE : ajoute le jeton de connexion s'il existe ---
+export async function fetchAPI(endpoint: string, options: RequestInit = {}) {
+  const jeton = await getToken();
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(jeton ? { Authorization: `Bearer ${jeton}` } : {}),
+      ...(options.headers ?? {}),
+    },
   });
-};
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || `Erreur HTTP ${response.status}`);
+  }
+  return data;
+}
 
-export const loginUser = async (email: string, pass: string) => {
+// ==================================================
+// AUTHENTIFICATION
+// ==================================================
+
+export const registerUser = (userData: {
+  name: string;
+  email: string;
+  password: string;
+  companyName?: string;
+  role?: string;
+}) =>
+  fetchAPI("/register", { method: "POST", body: JSON.stringify(userData) });
+
+/** Connecte l'utilisateur et garde son jeton ; renvoie son profil. */
+export const loginUser = async (email: string, pass: string): Promise<User> => {
   const data = await fetchAPI("/login", {
     method: "POST",
     body: JSON.stringify({ email, password: pass }),
   });
-
-  // Si login réussi, on sauvegarde l'objet complet en JSON
-  if (data.success && data.user) {
-    await AsyncStorage.setItem("user", JSON.stringify(data.user));
-  }
-
+  await AsyncStorage.setItem(CLE_JETON, data.token);
   return data.user;
 };
 
-export const logoutUser = async () => {
-  await AsyncStorage.clear();
-};
-
-// Fonction utilitaire pour récupérer l'utilisateur connecté partout
-export const getStoredUser = async (): Promise<User | null> => {
-  const user = await AsyncStorage.getItem("user");
-  return user ? JSON.parse(user) : null;
-};
+export const logoutUser = () => AsyncStorage.removeItem(CLE_JETON);
 
 // ==================================================
-// 🛒 MARKETPLACE
+// MARKETPLACE
 // ==================================================
 
-export const getEquipments = async (category = "Tout") => {
+export const getEquipments = async (category = "Tout"): Promise<Equipment[]> => {
   try {
     const endpoint =
-      category === "Tout" ? "/equipments" : `/equipments?category=${category}`;
+      category === "Tout"
+        ? "/equipments"
+        : `/equipments?category=${encodeURIComponent(category)}`;
     return await fetchAPI(endpoint);
-  } catch (e) {
+  } catch {
     return [];
   }
 };
 
-export const getEquipmentDetail = async (id: string) => {
-  return await fetchAPI(`/equipments/${id}`);
-};
+export const getEquipmentDetail = (id: string | number): Promise<Equipment> =>
+  fetchAPI(`/equipments/${id}`);
+
+export const postEquipment = (annonce: {
+  title: string;
+  description: string;
+  price: number;
+  status: string;
+}) => fetchAPI("/equipments", { method: "POST", body: JSON.stringify(annonce) });
 
 // ==================================================
-// 🔥 TRENDS (Produits & Swipes)
+// TENDANCES
 // ==================================================
 
 export const getTrends = async () => {
   try {
     return await fetchAPI("/products/trends");
-  } catch (e) {
+  } catch {
     return [];
   }
 };
 
-export const swipeProduct = async (
-  id_product: number,
-  action: "LIKE" | "DISLIKE",
-) => {
-  try {
-    const user = await getStoredUser();
-    if (!user) return;
-
-    await fetch(`${API_URL}/swipes`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id_user: user.id_user, id_product, action }),
-    });
-  } catch (e) {
-    console.error("Erreur swipe", e);
-  }
-};
+export const swipeProduct = (id_product: number, action: "LIKE" | "PASS") =>
+  fetchAPI("/swipes", { method: "POST", body: JSON.stringify({ id_product, action }) });
 
 // ==================================================
-// 💬 MESSAGERIE
+// MESSAGERIE
 // ==================================================
 
-export const getMyConversations = async () => {
+export const getMyConversations = async (): Promise<
+  { contact_id: number; contact_name: string }[]
+> => {
   try {
-    const user = await getStoredUser();
-    if (!user) return [];
-
-    return await fetchAPI(`/my-conversations/${user.id_user}`);
-  } catch (error) {
-    console.log("Erreur chargement conversations", error);
+    return await fetchAPI("/my-conversations");
+  } catch {
     return [];
   }
 };
+
+export const getConversation = (contactId: number): Promise<Message[]> =>
+  fetchAPI(`/messages/${contactId}`);

@@ -10,7 +10,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import * as Config from "../../constants/Config";
+import { postEquipment } from "../../services/data";
+import { CATEGORIES, libelleCategorie } from "../../constants/Categories";
 import { useAuth } from "../../context/AuthContext";
 
 export default function SellScreen() {
@@ -39,21 +40,13 @@ export default function SellScreen() {
     }
 
     try {
-      await fetch(
-        `${Config.API_URL || "http://69.62.110.32:3000"}/equipments`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title,
-            description,
-            price: parseFloat(price),
-            status: category,
-            location: "France",
-            id_user: user.id_user, // Utilisation de l'ID dynamique
-          }),
-        },
-      );
+      // Le vendeur est celui du jeton de connexion : pas besoin d'envoyer son ID.
+      await postEquipment({
+        title,
+        description,
+        price: parseFloat(price.replace(",", ".")),
+        status: category,
+      });
       Alert.alert("Succès !", "Votre annonce est en ligne.");
 
       // Réinitialisation du formulaire
@@ -63,9 +56,8 @@ export default function SellScreen() {
 
       // Redirection vers la marketplace pour voir l'annonce
       router.push("/market");
-    } catch (e) {
-      console.error(e);
-      Alert.alert("Erreur", "Impossible de publier l'annonce.");
+    } catch (e: any) {
+      Alert.alert("Erreur", e?.message || "Impossible de publier l'annonce.");
     }
   };
 
@@ -95,7 +87,7 @@ export default function SellScreen() {
 
         <Text style={styles.label}>Catégorie</Text>
         <View style={styles.catContainer}>
-          {["Robotics", "Refrigeration", "Furniture"].map((cat) => (
+          {CATEGORIES.map((cat) => (
             <TouchableOpacity
               key={cat}
               style={[styles.catBtn, category === cat && styles.catBtnActive]}
@@ -104,7 +96,7 @@ export default function SellScreen() {
               <Text
                 style={category === cat ? styles.catTextActive : styles.catText}
               >
-                {cat}
+                {libelleCategorie(cat)}
               </Text>
             </TouchableOpacity>
           ))}

@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { logoutUser } from "../services/data";
 
 // 1. Création du contexte
 const AuthContext = createContext<any>(null);
@@ -32,10 +33,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await AsyncStorage.setItem("@user", JSON.stringify(userData));
   };
 
-  // Fonction pour se déconnecter (efface la mémoire)
+  // Fonction pour se déconnecter (efface le profil et le jeton de connexion)
   const logout = async () => {
     setUser(null);
     await AsyncStorage.removeItem("@user");
+    await logoutUser();
   };
 
   return (

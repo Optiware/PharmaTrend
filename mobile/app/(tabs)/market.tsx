@@ -13,8 +13,9 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useMarketController } from "../../hooks/useMarket";
+import { CATEGORIES as LISTE, libelleCategorie } from "../../constants/Categories";
 
-const CATEGORIES = ["All Items", "Robotics", "Refrigeration", "Furniture"];
+const CATEGORIES = ["Tout", ...LISTE];
 
 export default function MarketScreen() {
   const router = useRouter();
@@ -29,8 +30,6 @@ export default function MarketScreen() {
   } = useMarketController();
 
   const renderItem = ({ item }: { item: any }) => {
-    const isAvailable = item.status === "Neuf" || item.status === "Bon état";
-
     return (
       <TouchableOpacity
         style={styles.card}
@@ -49,22 +48,17 @@ export default function MarketScreen() {
           </Text>
 
           <View style={styles.cardFooter}>
+            {/* La colonne « status » contient la catégorie choisie à la vente. */}
             <View style={styles.statusBadge}>
-              <View
-                style={[
-                  styles.statusDot,
-                  { backgroundColor: isAvailable ? "#10b981" : "#f59e0b" },
-                ]}
-              />
-              <Text style={styles.statusText}>
-                {isAvailable ? "Available" : "Pending"}
-              </Text>
+              <View style={[styles.statusDot, { backgroundColor: "#10b981" }]} />
+              <Text style={styles.statusText}>{libelleCategorie(item.status)}</Text>
             </View>
-            <View style={styles.locationContainer}>
-              <Ionicons name="location-sharp" size={14} color="#666" />
-              {/* CORRECTION ICI : le "s" a été retiré */}
-              <Text style={styles.distanceText}>See map</Text>
-            </View>
+            {item.location ? (
+              <View style={styles.locationContainer}>
+                <Ionicons name="location-sharp" size={14} color="#666" />
+                <Text style={styles.distanceText}>Localisé</Text>
+              </View>
+            ) : null}
           </View>
         </View>
       </TouchableOpacity>
@@ -90,7 +84,7 @@ export default function MarketScreen() {
             style={{ marginRight: 10 }}
           />
           <TextInput
-            placeholder="Search equipment..."
+            placeholder="Rechercher un équipement…"
             placeholderTextColor="#9ca3af"
             style={styles.searchInput}
             value={search}
@@ -118,7 +112,7 @@ export default function MarketScreen() {
                   selectedCat === cat && styles.catTextActive,
                 ]}
               >
-                {cat}
+                {libelleCategorie(cat)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -135,12 +129,15 @@ export default function MarketScreen() {
           contentContainerStyle={{ paddingBottom: 100 }}
           ListFooterComponent={
             <View style={styles.premiumBanner}>
-              <Text style={styles.bannerTitle}>Sell faster</Text>
+              <Text style={styles.bannerTitle}>Du matériel à vendre ?</Text>
               <Text style={styles.bannerSubtitle}>
-                Reach 5,000+ pharmacies.
+                Publiez votre annonce en quelques secondes.
               </Text>
-              <TouchableOpacity style={styles.bannerButton}>
-                <Text style={styles.bannerBtnText}>Post Ad</Text>
+              <TouchableOpacity
+                style={styles.bannerButton}
+                onPress={() => router.push("/sell")}
+              >
+                <Text style={styles.bannerBtnText}>Publier une annonce</Text>
               </TouchableOpacity>
             </View>
           }

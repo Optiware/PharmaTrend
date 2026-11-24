@@ -5,7 +5,7 @@ import { getEquipments } from "../services/data";
 export function useMarketController() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCat, setSelectedCat] = useState("All Items");
+  const [selectedCat, setSelectedCat] = useState("Tout");
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -18,7 +18,7 @@ export function useMarketController() {
         setError(null);
         try {
           const data = await getEquipments(
-            selectedCat === "All Items" ? "Tout" : selectedCat,
+            selectedCat,
           );
           if (isActive) setItems(data);
         } catch (err) {
