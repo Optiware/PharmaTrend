@@ -1,5 +1,7 @@
 # PharmaTrend
 
+[English version](README.en.md)
+
 Application mobile pour les pharmacies : une **marketplace** de matériel d'occasion entre
 professionnels, des **tendances** produits à faire glisser comme des cartes, et une
 **messagerie en temps réel** entre acheteurs et vendeurs.
